@@ -1,6 +1,6 @@
 {
   "name": "kimi-niang-quota",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Kimi 娘桌面挂件与只读双层额度查询",
   "keywords": ["quota", "widget", "desktop"],
   "license": "MIT",

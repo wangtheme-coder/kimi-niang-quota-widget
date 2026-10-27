@@ -36,7 +36,7 @@ while ($true) {
   $selected = $null
 
   if ($HostMode -eq 'auto') {
-    $selected = $candidates | Where-Object { $_.MainWindowHandle -eq $foreground } | Select-Object -First 1
+    $selected = $candidates | Where-Object { $_.MainWindowHandle -eq $foreground -and -not [KimiHostNative]::IsIconic($_.MainWindowHandle) } | Select-Object -First 1
     if ($null -eq $selected -and $currentHost -ne [IntPtr]::Zero) {
       $selected = $candidates | Where-Object {
         $_.MainWindowHandle -eq $currentHost -and -not [KimiHostNative]::IsIconic($_.MainWindowHandle)

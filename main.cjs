@@ -9,6 +9,10 @@ const { SettingsStore, normalizeSettings } = require('./src/settings.cjs')
 const PANEL_WIDTH = 310
 const CHARACTER_WIDTH = 190
 const BASE_HEIGHT = 360
+// 宿主最小化或被隐藏时 Windows 会给出 -25600,-25600 的占位矩形（约 159x27），
+// 不能拿它算缩放或定位，否则挂件会被缩成几像素。
+const MIN_HOST_WIDTH = 320
+const MIN_HOST_HEIGHT = 240
 const PIPE_NAME = '\\\\.\\pipe\\kimi-niang-quota'
 let win = null
 let settingsWindow = null
@@ -55,8 +59,13 @@ function saveSettings() {
   saveTimer = setTimeout(() => store?.save(settings), 250)
 }
 
+function hostUsable(info) {
+  if (!info?.found || !info.visible || info.minimized) return false
+  return Number(info.width) >= MIN_HOST_WIDTH && Number(info.height) >= MIN_HOST_HEIGHT
+}
+
 function hostFitScale() {
-  if (!hostInfo?.found || !hostInfo.width || !hostInfo.height) return 1
+  if (!hostUsable(hostInfo)) return 1
   const width = PANEL_WIDTH * (settings?.panelScale || 1) + CHARACTER_WIDTH * (settings?.characterScale || 1)
   const height = BASE_HEIGHT * Math.max(settings?.characterScale || 1, settings?.panelScale || 1)
   return Math.max(0.01, Math.min(1, (hostInfo.width - 4) / width, (hostInfo.height - 4) / height))
@@ -72,7 +81,7 @@ function windowSize() {
 
 function clampToHost(bounds) {
   const { width, height } = windowSize()
-  if (!hostInfo?.found) return { ...bounds, width, height }
+  if (!hostUsable(hostInfo)) return { ...bounds, width, height }
   return {
     ...bounds,
     width,
@@ -83,14 +92,14 @@ function clampToHost(bounds) {
 }
 
 function savePosition() {
-  if (!win || !hostInfo?.found) return
+  if (!win || !hostUsable(hostInfo)) return
   const bounds = win.getBounds()
   settings.position = { x: bounds.x - hostInfo.x, y: bounds.y - hostInfo.y }
 }
 
 let snapping = false
 function snapWindow() {
-  if (!win || !settings.edgeSnap || snapping || !hostInfo?.found) return
+  if (!win || !settings.edgeSnap || snapping || !hostUsable(hostInfo)) return
   const bounds = win.getBounds()
   const { width } = windowSize()
   const leftDistance = Math.abs(bounds.x - hostInfo.x)
@@ -113,7 +122,7 @@ function applyLayout() {
   if (!win || win.isDestroyed()) return
   const current = win.getBounds()
   let target = clampToHost(current)
-  if (settings.edgeSnap && hostInfo?.found) {
+  if (settings.edgeSnap && hostUsable(hostInfo)) {
     const leftDistance = Math.abs(current.x - hostInfo.x)
     const rightDistance = Math.abs(hostInfo.x + hostInfo.width - current.x - current.width)
     settings.side = leftDistance < rightDistance ? 'left' : 'right'
@@ -138,7 +147,7 @@ function updateHost(info) {
     previous?.x !== info.x || previous?.y !== info.y || previous?.width !== info.width || previous?.height !== info.height
   hostInfo = info
   if (!win || win.isDestroyed()) return
-  if (info.found && info.visible) {
+  if (hostUsable(info)) {
     if (changed && !dragOrigin) {
       const size = windowSize()
       const current = win.getBounds()
@@ -299,7 +308,7 @@ function createWindow() {
   win.setMenuBarVisibility(false)
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'))
   win.once('ready-to-show', () => {
-    if (hostInfo?.visible) win.showInactive()
+    if (hostUsable(hostInfo)) win.showInactive()
     sendState()
   })
   win.on('moved', () => {
@@ -375,7 +384,7 @@ if (!gotLock) {
 } else {
   app.on('second-instance', () => {
     if (win) {
-      if (!win.isVisible() && hostInfo?.visible) win.showInactive()
+      if (!win.isVisible() && hostUsable(hostInfo)) win.showInactive()
       refreshQuota()
     }
   })
@@ -433,6 +442,6 @@ app.on('before-quit', () => {
   clearTimeout(saveTimer)
   notificationServer?.close()
   stopHostTracker()
-  if (settings && hostInfo?.visible) savePosition()
+  if (settings && hostUsable(hostInfo)) savePosition()
   store?.save(settings)
 })
