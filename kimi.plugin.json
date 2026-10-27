@@ -1,0 +1,37 @@
+{
+  "name": "kimi-niang-quota",
+  "version": "0.2.0",
+  "description": "Kimi 娘桌面挂件与只读双层额度查询",
+  "keywords": ["quota", "widget", "desktop"],
+  "license": "MIT",
+  "interface": {
+    "displayName": "Kimi 娘额度挂件",
+    "shortDescription": "显示 5 小时与 30 天已用额度的桌面看板娘",
+    "longDescription": "通过只读额度接口查询 Kimi Code 当前账号，并提供可拖动、吸附和按压交互的桌面角色。"
+  },
+  "commands": "./commands/",
+  "mcpServers": {
+    "quota": {
+      "command": "node",
+      "args": ["./mcp/server.cjs"]
+    }
+  },
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "command": "node ./scripts/start-widget.cjs",
+      "timeout": 5
+    },
+    {
+      "event": "Stop",
+      "command": "node ./scripts/notify-widget.cjs",
+      "timeout": 5
+    },
+    {
+      "event": "Notification",
+      "matcher": "task\\.completed",
+      "command": "node ./scripts/notify-widget.cjs",
+      "timeout": 5
+    }
+  ]
+}

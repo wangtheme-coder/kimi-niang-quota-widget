@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kimi 娘挂件设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>Kimi 娘挂件设置</h1><p>更改会立即保存并应用</p></div>
+      <button id="close" class="close" type="button" aria-label="关闭设置">×</button>
+    </header>
+
+    <section>
+      <h2>外观</h2>
+      <label class="select-label host-label" for="host-mode"><span>活动宿主</span>
+        <select id="host-mode">
+          <option value="auto">自动选择 Kimi 宿主</option>
+          <option value="code">仅 Kimi Code</option>
+          <option value="kimi">仅 Kimi 客户端</option>
+        </select>
+      </label>
+      <label class="slider-label" for="character-scale"><span>角色大小</span><output id="character-value">100%</output></label>
+      <input id="character-scale" type="range" min="80" max="150" step="5" value="100">
+      <label class="slider-label" for="panel-scale"><span>额度面板大小</span><output id="panel-value">100%</output></label>
+      <input id="panel-scale" type="range" min="80" max="150" step="5" value="100">
+      <label class="select-label" for="auto-close"><span>面板自动收起</span>
+        <select id="auto-close">
+          <option value="0">不自动收起</option>
+          <option value="5000">5 秒</option>
+          <option value="10000">10 秒</option>
+          <option value="30000">30 秒</option>
+        </select>
+      </label>
+    </section>
+
+    <section>
+      <h2>音效</h2>
+      <div class="setting-row"><label for="click-sound">按压与松开</label><input id="click-sound" type="checkbox" checked></div>
+      <label class="slider-label" for="click-volume"><span>按压音量</span><output id="click-volume-value">45%</output></label>
+      <div class="volume-row"><input id="click-volume" type="range" min="0" max="100" value="45"><button type="button" data-preview="press">试听</button></div>
+      <div class="setting-row"><label for="completion-sound">Kimi Code / Work 任务完成</label><input id="completion-sound" type="checkbox" checked></div>
+      <label class="slider-label" for="completion-volume"><span>完成提示音量</span><output id="completion-volume-value">65%</output></label>
+      <div class="volume-row"><input id="completion-volume" type="range" min="0" max="100" value="65"><button type="button" data-preview="complete">试听</button></div>
+      <p class="note">完成提示支持 Kimi Code 与 Kimi Work 的官方 Hooks。Kimi Chat 尚无已验证的任务完成事件或进度接口，暂未接入。</p>
+    </section>
+    <footer>右键角色也可打开此设置窗口</footer>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>

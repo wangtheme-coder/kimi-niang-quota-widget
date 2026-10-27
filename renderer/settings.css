@@ -1,0 +1,26 @@
+:root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #f4f5ff; background: #18192b; }
+* { box-sizing: border-box; }
+body { margin: 0; user-select: none; }
+main { width: 430px; padding: 24px; }
+header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+h1 { margin: 0; font-size: 21px; }
+header p, .note, footer { color: #a5a8bd; font-size: 11px; line-height: 1.7; }
+header p { margin: 6px 0 0; }
+button, select, input { font: inherit; }
+button { border: 1px solid #454863; border-radius: 8px; padding: 6px 14px; color: #e9eaff; background: #292c45; cursor: pointer; }
+button:hover { background: #383c5b; }
+.close { width: 30px; height: 30px; padding: 0; font-size: 21px; line-height: 1; }
+section { margin-top: 16px; padding: 18px; border: 1px solid #30334b; border-radius: 14px; background: #202238; }
+h2 { margin: 0 0 17px; font-size: 14px; color: #c8bcff; }
+.slider-label, .select-label, .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 12px; }
+.slider-label { margin: 14px 0 7px; }
+output { color: #aaa0e8; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: #9b88ef; cursor: pointer; }
+.select-label { margin-top: 20px; }
+select { padding: 6px 9px; border: 1px solid #454863; border-radius: 8px; color: #f4f5ff; background: #292c45; }
+.setting-row { margin: 12px 0 5px; }
+.setting-row input { width: 16px; height: 16px; accent-color: #9b88ef; }
+.volume-row { display: flex; align-items: center; gap: 12px; }
+.volume-row button { flex-shrink: 0; font-size: 11px; }
+.note { margin: 18px 0 0; }
+footer { padding: 16px 0 0; text-align: center; }

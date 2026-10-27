@@ -1,0 +1,9 @@
+node_modules/
+.artifacts/
+dist/
+*.log
+*.tmp
+.DS_Store
+
+# 内部交接与调试记录，不随仓库发布
+DSH-HANDOFF.md
