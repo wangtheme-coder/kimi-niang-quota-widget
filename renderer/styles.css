@@ -36,13 +36,14 @@ button { font: inherit; }
   box-shadow: 0 16px 50px rgba(5, 6, 20, 0.32), inset 0 1px rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   opacity: 0;
+  visibility: hidden;
   transform: translate(18px, 8px) scale(0.94);
   transform-origin: bottom right;
-  transition: opacity 160ms ease, transform 200ms cubic-bezier(.2,.8,.2,1);
+  transition: visibility 0s linear 200ms, opacity 160ms ease, transform 200ms cubic-bezier(.2,.8,.2,1);
   pointer-events: none;
   -webkit-app-region: no-drag;
 }
-.bubble.open { opacity: 1; transform: none; pointer-events: auto; }
+.bubble.open { opacity: 1; visibility: visible; transform: none; pointer-events: auto; transition-delay: 0s; }
 .bubble-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 19px; }
 .bubble-header > div { display: flex; align-items: baseline; gap: 9px; }
 .bubble-header strong { font-size: 16px; letter-spacing: .04em; }

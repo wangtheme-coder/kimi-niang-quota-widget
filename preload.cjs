@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('kimiWidget', {
   setDemo: (enabled) => ipcRenderer.invoke('widget:set-demo', enabled),
   openSettings: () => ipcRenderer.invoke('widget:open-settings'),
   revealWidget: () => ipcRenderer.send('widget:reveal'),
+  setMousePassThrough: (ignore) => ipcRenderer.send('widget:mouse-pass-through', ignore),
   launcherDragStart: (point) => ipcRenderer.send('launcher:drag-start', point),
   launcherDragMove: (point) => ipcRenderer.send('launcher:drag-move', point),
   launcherDragEnd: () => ipcRenderer.send('launcher:drag-end'),

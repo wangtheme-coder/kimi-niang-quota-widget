@@ -10,6 +10,8 @@ let latestState = null
 let expanded = false
 let resetTimer = null
 let collapseTimer = null
+let pointerOverCharacter = false
+let mousePassThrough = false
 
 characterImage.addEventListener('load', () => character.classList.add('has-image'))
 characterImage.addEventListener('error', () => character.classList.remove('has-image'))
@@ -21,19 +23,36 @@ function scheduleCollapse() {
   if (expanded && delay > 0) collapseTimer = setTimeout(() => setExpanded(false), delay)
 }
 
+function updateMousePassThrough() {
+  const ignore = !expanded && !pointerOverCharacter
+  if (mousePassThrough === ignore) return
+  mousePassThrough = ignore
+  window.kimiWidget.setMousePassThrough(ignore)
+}
+
 function setExpanded(value) {
   expanded = value
   bubble.classList.toggle('open', value)
   bubble.setAttribute('aria-hidden', String(!value))
   character.setAttribute('aria-expanded', String(value))
+  updateMousePassThrough()
   scheduleCollapse()
 }
+
+character.addEventListener('pointerenter', () => {
+  pointerOverCharacter = true
+  updateMousePassThrough()
+})
+character.addEventListener('pointerleave', () => {
+  pointerOverCharacter = false
+  updateMousePassThrough()
+})
 
 function playLocalSound(kind) {
   const completion = kind === 'complete'
   return window.playKimiSound(kind, {
     enabled: completion ? latestState?.completionSound !== false : latestState?.clickSound !== false,
-    volume: completion ? latestState?.completionVolume ?? 0.65 : latestState?.clickVolume ?? 0.45,
+    volume: completion ? latestState?.completionVolume ?? 1 : latestState?.clickVolume ?? 1,
     preset: latestState?.clickSoundPreset || 'duck',
   })
 }
@@ -181,6 +200,7 @@ function render(state) {
 }
 
 character.addEventListener('contextmenu', () => setExpanded(true))
+updateMousePassThrough()
 window.kimiWidget.getState().then(render).catch((error) => {
   statusLabel.textContent = error.message || '挂件初始化失败'
   onlineDot.className = 'online-dot error'

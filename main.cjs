@@ -33,6 +33,7 @@ let refreshTimer = null
 let saveTimer = null
 let activeRequest = null
 let requestSequence = 0
+let widgetDismissed = false
 let state = emptyState(process.argv.includes('--demo'))
 
 function emptyState(demo = false) {
@@ -172,6 +173,7 @@ function saveLauncherPosition() {
 
 function revealWidget() {
   if (!hostUsable(hostInfo)) return
+  widgetDismissed = false
   if (launcherWin && !launcherWin.isDestroyed()) {
     launcherWin.setBounds(launcherBounds(hostInfo), false)
     launcherWin.showInactive()
@@ -181,6 +183,12 @@ function revealWidget() {
     win.webContents.send('widget:reveal')
   }
   refreshQuota()
+}
+
+function dismissWidget() {
+  widgetDismissed = true
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close()
+  if (win && !win.isDestroyed()) win.hide()
 }
 
 function updateHost(info) {
@@ -213,7 +221,7 @@ function updateHost(info) {
         launcherWin.moveTop()
       }
     }
-    if (changed || !win.isVisible()) win.showInactive()
+    if (!widgetDismissed && (changed || !win.isVisible())) win.showInactive()
   } else {
     if ((changed || win.isVisible()) && !win.isDestroyed()) win.hide()
     if (launcherWin && !launcherWin.isDestroyed() && (changed || launcherWin.isVisible())) launcherWin.hide()
@@ -293,7 +301,7 @@ function createMenu() {
     } },
     { type: 'separator' },
     { label: '打开 Kimi Code 控制台', click: () => shell.openExternal('https://www.kimi.com/code/console') },
-    { label: '退出 Kimi 娘', click: () => app.quit() },
+    { label: '退出 Kimi 娘（保留快速入口）', click: () => dismissWidget() },
   ])
 }
 
@@ -411,6 +419,11 @@ function createLauncher() {
 
 ipcMain.on('widget:reveal', (event) => {
   if (launcherWin && event.sender.id === launcherWin.webContents.id) revealWidget()
+})
+
+ipcMain.on('widget:mouse-pass-through', (event, ignore) => {
+  if (!win || win.isDestroyed() || event.sender.id !== win.webContents.id) return
+  win.setIgnoreMouseEvents(Boolean(ignore), { forward: Boolean(ignore) })
 })
 
 let launcherDragOrigin = null
