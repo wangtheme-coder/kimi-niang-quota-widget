@@ -9,11 +9,13 @@ const DEFAULTS = {
   panelScale: 1,
   autoCloseMs: 10000,
   clickSound: true,
+  clickSoundPreset: 'duck',
   clickVolume: 0.45,
   completionSound: true,
   completionVolume: 0.65,
   demo: false,
   position: null,
+  launcherPosition: null,
 }
 
 function scale(value, fallback) {
@@ -33,6 +35,7 @@ function normalizeSettings(value = {}) {
     panelScale: scale(value.panelScale, legacyScale),
     autoCloseMs: [0, 5000, 10000, 30000].includes(value.autoCloseMs) ? value.autoCloseMs : 10000,
     clickSound: value.clickSound !== false,
+    clickSoundPreset: ['duck', 'electronic'].includes(value.clickSoundPreset) ? value.clickSoundPreset : 'duck',
     clickVolume: volume(value.clickVolume, DEFAULTS.clickVolume),
     completionSound: value.completionSound !== false,
     completionVolume: volume(value.completionVolume, DEFAULTS.completionVolume),
@@ -41,6 +44,12 @@ function normalizeSettings(value = {}) {
     edgeSnap: value.edgeSnap !== false,
     position: Number.isFinite(value.position?.x) && Number.isFinite(value.position?.y)
       ? { x: value.position.x, y: value.position.y }
+      : null,
+    launcherPosition: Number.isFinite(value.launcherPosition?.xRatio) && Number.isFinite(value.launcherPosition?.yRatio)
+      ? {
+          xRatio: Math.max(0, Math.min(1, value.launcherPosition.xRatio)),
+          yRatio: Math.max(0, Math.min(1, value.launcherPosition.yRatio)),
+        }
       : null,
   }
   delete normalized.scale

@@ -4,6 +4,7 @@ const fields = {
   panelScale: document.querySelector('#panel-scale'),
   autoCloseMs: document.querySelector('#auto-close'),
   clickSound: document.querySelector('#click-sound'),
+  clickSoundPreset: document.querySelector('#click-sound-preset'),
   clickVolume: document.querySelector('#click-volume'),
   completionSound: document.querySelector('#completion-sound'),
   completionVolume: document.querySelector('#completion-volume'),
@@ -22,6 +23,7 @@ function render(settings) {
   fields.panelScale.value = Math.round(settings.panelScale * 100)
   fields.autoCloseMs.value = String(settings.autoCloseMs)
   fields.clickSound.checked = settings.clickSound
+  fields.clickSoundPreset.value = settings.clickSoundPreset
   fields.clickVolume.value = Math.round(settings.clickVolume * 100)
   fields.completionSound.checked = settings.completionSound
   fields.completionVolume.value = Math.round(settings.completionVolume * 100)
@@ -35,6 +37,7 @@ function readForm() {
     panelScale: Number(fields.panelScale.value) / 100,
     autoCloseMs: Number(fields.autoCloseMs.value),
     clickSound: fields.clickSound.checked,
+    clickSoundPreset: fields.clickSoundPreset.value,
     clickVolume: Number(fields.clickVolume.value) / 100,
     completionSound: fields.completionSound.checked,
     completionVolume: Number(fields.completionVolume.value) / 100,

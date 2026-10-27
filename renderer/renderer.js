@@ -34,6 +34,7 @@ function playLocalSound(kind) {
   return window.playKimiSound(kind, {
     enabled: completion ? latestState?.completionSound !== false : latestState?.clickSound !== false,
     volume: completion ? latestState?.completionVolume ?? 0.65 : latestState?.clickVolume ?? 0.45,
+    preset: latestState?.clickSoundPreset || 'duck',
   })
 }
 
@@ -185,6 +186,7 @@ window.kimiWidget.getState().then(render).catch((error) => {
   onlineDot.className = 'online-dot error'
 })
 window.kimiWidget.onState(render)
+window.kimiWidget.onReveal(() => setExpanded(true))
 resetTimer = setInterval(() => {
   if (latestState) render(latestState)
 }, 60000)

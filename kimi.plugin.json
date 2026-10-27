@@ -1,13 +1,17 @@
 {
   "name": "kimi-niang-quota",
-  "version": "0.2.1",
-  "description": "Kimi 娘桌面挂件与只读双层额度查询",
-  "keywords": ["quota", "widget", "desktop"],
+  "version": "0.3.0",
+  "description": "Kimi 娘第三方桌面挂件与只读双层额度查询",
+  "keywords": ["quota", "widget", "desktop", "kimi-plugin"],
+  "author": "wangtheme-coder",
+  "homepage": "https://github.com/wangtheme-coder/kimi-niang-quota-widget",
   "license": "MIT",
   "interface": {
     "displayName": "Kimi 娘额度挂件",
     "shortDescription": "显示 5 小时与 30 天已用额度的桌面看板娘",
-    "longDescription": "通过只读额度接口查询 Kimi Code 当前账号，并提供可拖动、吸附和按压交互的桌面角色。"
+    "longDescription": "通过只读额度接口查询 Kimi Code 当前账号，并提供可拖动、吸附和按压交互的桌面角色。首次启动自动准备桌面组件。",
+    "developerName": "wangtheme-coder",
+    "websiteURL": "https://github.com/wangtheme-coder/kimi-niang-quota-widget"
   },
   "commands": "./commands/",
   "mcpServers": {

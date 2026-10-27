@@ -9,16 +9,22 @@ const { SettingsStore, normalizeSettings } = require('./src/settings.cjs')
 const PANEL_WIDTH = 310
 const CHARACTER_WIDTH = 190
 const BASE_HEIGHT = 360
+const LAUNCHER_WIDTH = 36
+const LAUNCHER_HEIGHT = 36
+const LAUNCHER_BOTTOM_OFFSET = 50
+const HOST_EXIT_GRACE_MS = 1500
 // 宿主最小化或被隐藏时 Windows 会给出 -25600,-25600 的占位矩形（约 159x27），
 // 不能拿它算缩放或定位，否则挂件会被缩成几像素。
 const MIN_HOST_WIDTH = 320
 const MIN_HOST_HEIGHT = 240
 const PIPE_NAME = '\\\\.\\pipe\\kimi-niang-quota'
 let win = null
+let launcherWin = null
 let settingsWindow = null
 let notificationServer = null
 let hostTracker = null
 let hostInfo = null
+let hostExitTimer = null
 let syncing = false
 let lastCompletionAt = 0
 let store = null
@@ -41,7 +47,7 @@ function emptyState(demo = false) {
 
 function publicSettings() {
   if (!settings) return {}
-  const { position, demo, ...value } = settings
+  const { position, launcherPosition, demo, ...value } = settings
   return value
 }
 
@@ -141,10 +147,52 @@ function applyLayout() {
   sendState()
 }
 
+function launcherBounds(info) {
+  const availableWidth = Math.max(0, info.width - LAUNCHER_WIDTH - 4)
+  const availableHeight = Math.max(0, info.height - LAUNCHER_HEIGHT - 4)
+  const position = settings?.launcherPosition
+  return {
+    width: LAUNCHER_WIDTH,
+    height: LAUNCHER_HEIGHT,
+    x: info.x + 2 + Math.round(availableWidth * (position?.xRatio ?? 0.295)),
+    y: position
+      ? info.y + 2 + Math.round(availableHeight * position.yRatio)
+      : Math.max(info.y + 2, info.y + info.height - LAUNCHER_HEIGHT - LAUNCHER_BOTTOM_OFFSET),
+  }
+}
+
+function saveLauncherPosition() {
+  if (!launcherWin || !hostUsable(hostInfo)) return
+  const bounds = launcherWin.getBounds()
+  settings.launcherPosition = {
+    xRatio: Math.max(0, Math.min(1, (bounds.x - hostInfo.x - 2) / Math.max(1, hostInfo.width - LAUNCHER_WIDTH - 4))),
+    yRatio: Math.max(0, Math.min(1, (bounds.y - hostInfo.y - 2) / Math.max(1, hostInfo.height - LAUNCHER_HEIGHT - 4))),
+  }
+}
+
+function revealWidget() {
+  if (!hostUsable(hostInfo)) return
+  if (launcherWin && !launcherWin.isDestroyed()) {
+    launcherWin.setBounds(launcherBounds(hostInfo), false)
+    launcherWin.showInactive()
+  }
+  if (win && !win.isDestroyed()) {
+    win.showInactive()
+    win.webContents.send('widget:reveal')
+  }
+  refreshQuota()
+}
+
 function updateHost(info) {
   const previous = hostInfo
   const changed = previous?.handle !== info.handle || previous?.visible !== info.visible ||
     previous?.x !== info.x || previous?.y !== info.y || previous?.width !== info.width || previous?.height !== info.height
+  if (Number(info.hostProcessCount) === 0) {
+    if (!hostExitTimer) hostExitTimer = setTimeout(() => app.quit(), HOST_EXIT_GRACE_MS)
+  } else {
+    clearTimeout(hostExitTimer)
+    hostExitTimer = null
+  }
   hostInfo = info
   if (!win || win.isDestroyed()) return
   if (hostUsable(info)) {
@@ -158,9 +206,17 @@ function updateHost(info) {
       win.setBounds(clampToHost(target), false)
       syncing = false
     }
+    if (launcherWin && !launcherWin.isDestroyed()) {
+      if (changed) launcherWin.setBounds(launcherBounds(info), false)
+      if (changed || !launcherWin.isVisible()) {
+        launcherWin.showInactive()
+        launcherWin.moveTop()
+      }
+    }
     if (changed || !win.isVisible()) win.showInactive()
-  } else if (changed || win.isVisible()) {
-    win.hide()
+  } else {
+    if ((changed || win.isVisible()) && !win.isDestroyed()) win.hide()
+    if (launcherWin && !launcherWin.isDestroyed() && (changed || launcherWin.isVisible())) launcherWin.hide()
   }
   if (changed) sendState()
 }
@@ -172,11 +228,12 @@ function stopHostTracker() {
 
 function startHostTracker() {
   stopHostTracker()
-  if (!win || win.isDestroyed()) return
+  if (!win || win.isDestroyed() || !launcherWin || launcherWin.isDestroyed()) return
   const handle = win.getNativeWindowHandle().readBigUInt64LE(0).toString()
+  const launcherHandle = launcherWin.getNativeWindowHandle().readBigUInt64LE(0).toString()
   const child = spawn('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'scripts', 'host-window.ps1'),
-    '-WidgetHandle', handle, '-HostMode', settings.hostMode,
+    '-WidgetHandle', handle, '-LauncherHandle', launcherHandle, '-HostMode', settings.hostMode,
   ], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   hostTracker = child
   readline.createInterface({ input: child.stdout }).on('line', (line) => {
@@ -321,10 +378,72 @@ function createWindow() {
   win.on('closed', () => { win = null })
 }
 
-let dragOrigin = null
+function createLauncher() {
+  launcherWin = new BrowserWindow({
+    width: LAUNCHER_WIDTH,
+    height: LAUNCHER_HEIGHT,
+    x: 0,
+    y: 0,
+    useContentSize: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: false,
+    backgroundColor: '#00000000',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      devTools: false,
+      backgroundThrottling: false,
+    },
+  })
+  launcherWin.setAlwaysOnTop(false)
+  launcherWin.setMenuBarVisibility(false)
+  launcherWin.loadFile(path.join(__dirname, 'renderer', 'launcher.html'))
+  launcherWin.on('closed', () => { launcherWin = null })
+}
+
+ipcMain.on('widget:reveal', (event) => {
+  if (launcherWin && event.sender.id === launcherWin.webContents.id) revealWidget()
+})
+
+let launcherDragOrigin = null
 function validPoint(point) {
   return Number.isFinite(point?.x) && Number.isFinite(point?.y)
 }
+ipcMain.on('launcher:drag-start', (event, point) => {
+  if (!launcherWin || event.sender.id !== launcherWin.webContents.id || !validPoint(point)) return
+  launcherDragOrigin = { point, bounds: launcherWin.getBounds() }
+})
+ipcMain.on('launcher:drag-move', (event, point) => {
+  if (!launcherWin || !launcherDragOrigin || event.sender.id !== launcherWin.webContents.id || !validPoint(point)) return
+  const bounds = {
+    ...launcherDragOrigin.bounds,
+    x: launcherDragOrigin.bounds.x + Math.round(point.x - launcherDragOrigin.point.x),
+    y: launcherDragOrigin.bounds.y + Math.round(point.y - launcherDragOrigin.point.y),
+  }
+  if (hostUsable(hostInfo)) {
+    launcherWin.setBounds({
+      ...bounds,
+      x: Math.max(hostInfo.x + 2, Math.min(bounds.x, hostInfo.x + hostInfo.width - LAUNCHER_WIDTH - 2)),
+      y: Math.max(hostInfo.y + 2, Math.min(bounds.y, hostInfo.y + hostInfo.height - LAUNCHER_HEIGHT - 2)),
+    }, false)
+  }
+})
+ipcMain.on('launcher:drag-end', (event) => {
+  if (!launcherWin || event.sender.id !== launcherWin.webContents.id) return
+  launcherDragOrigin = null
+  saveLauncherPosition()
+  saveSettings()
+})
+
+let dragOrigin = null
 ipcMain.on('widget:drag-start', (event, point) => {
   if (!win || event.sender.id !== win.webContents.id || !validPoint(point)) return
   dragOrigin = { point, bounds: win.getBounds() }
@@ -382,12 +501,7 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (win) {
-      if (!win.isVisible() && hostUsable(hostInfo)) win.showInactive()
-      refreshQuota()
-    }
-  })
+  app.on('second-instance', () => revealWidget())
   app.whenReady().then(() => {
     store = new SettingsStore(app.getPath('userData'))
     settings = store.load()
@@ -402,7 +516,7 @@ if (!gotLock) {
     ipcMain.handle('widget:update-settings', (event, patch) => {
       if (!trustedSender(event) || !patch || typeof patch !== 'object') return publicSettings()
       const allowed = ['hostMode', 'characterScale', 'panelScale', 'autoCloseMs', 'clickSound',
-        'clickVolume', 'completionSound', 'completionVolume']
+        'clickSoundPreset', 'clickVolume', 'completionSound', 'completionVolume']
       const update = {}
       for (const key of allowed) {
         if (Object.hasOwn(patch, key)) update[key] = patch[key]
@@ -427,6 +541,7 @@ if (!gotLock) {
       return refreshQuota()
     })
     createWindow()
+    createLauncher()
     startHostTracker()
     startNotificationBridge()
     refreshQuota()
@@ -440,6 +555,7 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   clearInterval(refreshTimer)
   clearTimeout(saveTimer)
+  clearTimeout(hostExitTimer)
   notificationServer?.close()
   stopHostTracker()
   if (settings && hostUsable(hostInfo)) savePosition()

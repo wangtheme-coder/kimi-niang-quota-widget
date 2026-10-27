@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "kimi-niang-quota",
+      "displayName": "Kimi 娘额度挂件",
+      "source": "https://github.com/wangtheme-coder/kimi-niang-quota-widget"
+    }
+  ]
+}

@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('kimiWidget', {
   refresh: () => ipcRenderer.invoke('widget:refresh'),
   setDemo: (enabled) => ipcRenderer.invoke('widget:set-demo', enabled),
   openSettings: () => ipcRenderer.invoke('widget:open-settings'),
+  revealWidget: () => ipcRenderer.send('widget:reveal'),
+  launcherDragStart: (point) => ipcRenderer.send('launcher:drag-start', point),
+  launcherDragMove: (point) => ipcRenderer.send('launcher:drag-move', point),
+  launcherDragEnd: () => ipcRenderer.send('launcher:drag-end'),
   playSound: (kind) => ipcRenderer.invoke('widget:play-sound', kind),
   dragStart: (point) => ipcRenderer.send('widget:drag-start', point),
   dragMove: (point) => ipcRenderer.send('widget:drag-move', point),
@@ -25,5 +29,10 @@ contextBridge.exposeInMainWorld('kimiWidget', {
     const listener = (_event, state) => callback(state)
     ipcRenderer.on('widget:state', listener)
     return () => ipcRenderer.removeListener('widget:state', listener)
+  },
+  onReveal: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('widget:reveal', listener)
+    return () => ipcRenderer.removeListener('widget:reveal', listener)
   },
 })

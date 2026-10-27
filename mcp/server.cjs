@@ -1,9 +1,8 @@
 const readline = require('node:readline')
-const { spawn } = require('node:child_process')
-const path = require('node:path')
 const { fetchQuota } = require('../src/quota.cjs')
+const { launchWidget } = require('../scripts/widget-runtime.cjs')
+const { version } = require('../package.json')
 
-const root = path.resolve(__dirname, '..')
 const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity })
 
 function send(message) {
@@ -24,12 +23,12 @@ async function callTool(name) {
   }
   if (name === 'open_widget') {
     try {
-      const electron = require('electron')
-      const child = spawn(electron, [root], { detached: true, stdio: 'ignore', cwd: root })
-      child.unref()
-      return textResult('Kimi 娘桌面挂件已启动。')
-    } catch {
-      return textResult('桌面组件尚未安装。请在插件目录运行 npm install 后重试。', true)
+      const status = launchWidget()
+      return textResult(status === 'started'
+        ? 'Kimi 娘桌面挂件已启动或呼出。'
+        : '首次使用正在准备桌面组件，完成后会自动打开 Kimi 娘；额度查询现在即可使用。')
+    } catch (error) {
+      return textResult(`桌面组件启动失败：${error.message || '未知错误'}`, true)
     }
   }
   return textResult(`未知工具：${name}`, true)
@@ -47,14 +46,14 @@ input.on('line', async (line) => {
     send({ jsonrpc: '2.0', id: message.id, result: {
       protocolVersion: message.params?.protocolVersion || '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'kimi-niang-quota', version: '0.1.0' },
+      serverInfo: { name: 'kimi-niang-quota', version },
     } })
     return
   }
   if (message.method === 'tools/list') {
     send({ jsonrpc: '2.0', id: message.id, result: { tools: [
       { name: 'get_quota', description: '只读查询当前 Kimi Code 账号的 5 小时和 30 天额度，不创建聊天或模型请求', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
-      { name: 'open_widget', description: '启动 Kimi 娘桌面挂件；首次使用需要在插件目录安装桌面依赖', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+      { name: 'open_widget', description: '启动或呼出 Kimi 娘桌面挂件；首次使用会自动准备桌面组件', inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
     ] } })
     return
   }

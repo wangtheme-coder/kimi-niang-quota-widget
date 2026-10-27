@@ -1,9 +1,8 @@
 {
   "name": "kimi-niang-quota-widget",
-  "version": "0.2.1",
-  "description": "Kimi 娘 5 小时 / 30 天额度桌面挂件",
+  "version": "0.3.0",
+  "description": "Kimi 娘 5 小时 / 30 天额度第三方插件与桌面挂件",
   "main": "main.cjs",
-  "private": true,
   "license": "MIT",
   "author": "wangtheme-coder",
   "homepage": "https://github.com/wangtheme-coder/kimi-niang-quota-widget#readme",
@@ -19,15 +18,34 @@
     "quota",
     "widget",
     "electron",
-    "kimi-code"
+    "kimi-code",
+    "kimi-plugin"
   ],
   "engines": {
     "node": ">=20"
   },
+  "files": [
+    "kimi.plugin.json",
+    "marketplace.json",
+    "main.cjs",
+    "preload.cjs",
+    "assets",
+    "commands",
+    "docs",
+    "mcp",
+    "renderer",
+    "scripts",
+    "src",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
   "scripts": {
     "start": "electron .",
     "demo": "electron . --demo",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check src/quota.cjs && node --check src/settings.cjs && node --check mcp/server.cjs && node --check scripts/start-widget.cjs && node --check scripts/notify-widget.cjs && node --check renderer/audio.js && node --check renderer/renderer.js && node --check renderer/settings.js"
+    "check": "node --check main.cjs && node --check preload.cjs && node --check src/quota.cjs && node --check src/settings.cjs && node --check mcp/server.cjs && node --check scripts/start-widget.cjs && node --check scripts/widget-runtime.cjs && node --check scripts/install-widget-runtime.cjs && node --check scripts/notify-widget.cjs && node --check scripts/package-plugin.cjs && node --check renderer/audio.js && node --check renderer/renderer.js && node --check renderer/launcher.js && node --check renderer/settings.js",
+    "package": "node scripts/package-plugin.cjs"
   },
   "devDependencies": {
     "electron": "^39.0.0"
