@@ -1,5 +1,5 @@
 let audioContext = null
-const CLICK_OUTPUT_GAIN = 1 / 0.6
+const CLICK_OUTPUT_GAIN = 2.5
 
 function tone(context, frequency, start, duration, volume, endFrequency = frequency) {
   const oscillator = context.createOscillator()
