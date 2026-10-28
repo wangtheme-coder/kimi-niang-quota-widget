@@ -1,6 +1,6 @@
 {
   "name": "kimi-niang-quota-widget",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Kimi 娘 5 小时 / 30 天额度第三方插件与桌面挂件",
   "main": "main.cjs",
   "license": "MIT",
