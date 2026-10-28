@@ -189,9 +189,14 @@ function render(state) {
   sourceLabel.textContent = state.demo ? '演示数据' : 'Kimi Code'
   sourceLabel.style.color = state.demo ? '#ffd178' : ''
   statusLabel.textContent = state.error || (state.demo ? '仅演示界面，不是账号额度' : '额度已更新')
-  updatedLabel.textContent = state.updatedAt
-    ? new Date(state.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const updated = state.updatedAt ? new Date(state.updatedAt) : null
+  const isToday = updated?.toDateString() === new Date().toDateString()
+  updatedLabel.textContent = updated
+    ? updated.toLocaleString('zh-CN', isToday
+      ? { hour: '2-digit', minute: '2-digit' }
+      : { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     : ''
+  updatedLabel.title = updated ? `成功快照：${updated.toLocaleString('zh-CN')}` : ''
   onlineDot.className = `online-dot ${state.error ? 'error' : state.loading ? '' : 'ok'}`
   refreshButton.classList.toggle('loading', Boolean(state.loading))
   document.querySelectorAll('.reset').forEach((element) => {
@@ -207,6 +212,7 @@ window.kimiWidget.getState().then(render).catch((error) => {
 })
 window.kimiWidget.onState(render)
 window.kimiWidget.onReveal(() => setExpanded(true))
+window.addEventListener('online', () => window.kimiWidget.refresh())
 resetTimer = setInterval(() => {
   if (latestState) render(latestState)
 }, 60000)

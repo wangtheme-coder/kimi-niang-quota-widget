@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, powerMonitor, shell } = require('electron')
 const path = require('node:path')
 const net = require('node:net')
 const readline = require('node:readline')
@@ -201,6 +201,7 @@ function updateHost(info) {
     clearTimeout(hostExitTimer)
     hostExitTimer = null
   }
+  const becameUsable = !hostUsable(previous) && hostUsable(info)
   hostInfo = info
   if (!win || win.isDestroyed()) return
   if (hostUsable(info)) {
@@ -227,6 +228,7 @@ function updateHost(info) {
     if (launcherWin && !launcherWin.isDestroyed() && (changed || launcherWin.isVisible())) launcherWin.hide()
   }
   if (changed) sendState()
+  if (becameUsable && !widgetDismissed) refreshQuota()
 }
 
 function stopHostTracker() {
@@ -557,6 +559,8 @@ if (!gotLock) {
     createLauncher()
     startHostTracker()
     startNotificationBridge()
+    powerMonitor.on('resume', () => refreshQuota())
+    powerMonitor.on('unlock-screen', () => refreshQuota())
     refreshQuota()
     refreshTimer = setInterval(() => {
       if (win && !win.isDestroyed() && win.isVisible()) refreshQuota()
