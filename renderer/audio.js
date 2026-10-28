@@ -1,4 +1,5 @@
 let audioContext = null
+const CLICK_OUTPUT_GAIN = 1 / 0.6
 
 function tone(context, frequency, start, duration, volume, endFrequency = frequency) {
   const oscillator = context.createOscillator()
@@ -42,15 +43,16 @@ async function playSound(kind, { enabled = true, volume = 0.5, preset = 'duck' }
     audioContext ||= new AudioContext()
     if (audioContext.state === 'suspended') await audioContext.resume()
     const now = audioContext.currentTime + 0.01
+    const outputVolume = kind === 'complete' ? volume : volume * CLICK_OUTPUT_GAIN
     if (kind === 'complete') {
-      tone(audioContext, 523.25, now, 0.24, volume * 0.16)
-      tone(audioContext, 659.25, now + 0.09, 0.25, volume * 0.15)
-      tone(audioContext, 783.99, now + 0.18, 0.32, volume * 0.14)
+      tone(audioContext, 523.25, now, 0.24, outputVolume * 0.16)
+      tone(audioContext, 659.25, now + 0.09, 0.25, outputVolume * 0.15)
+      tone(audioContext, 783.99, now + 0.18, 0.32, outputVolume * 0.14)
     } else if (preset === 'electronic') {
       tone(audioContext, kind === 'release' ? 620 : 420, now, kind === 'release' ? 0.075 : 0.055,
-        volume * (kind === 'release' ? 0.12 : 0.1), kind === 'release' ? 480 : 540)
+        outputVolume * (kind === 'release' ? 0.12 : 0.1), kind === 'release' ? 480 : 540)
     } else {
-      squeak(audioContext, now, volume, kind === 'release')
+      squeak(audioContext, now, outputVolume, kind === 'release')
     }
     return true
   } catch {
