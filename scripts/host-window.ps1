@@ -10,15 +10,35 @@ $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class KimiHostNative {
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint command);
   [DllImport("user32.dll", EntryPoint="SetWindowLongPtrW", SetLastError=true)]
   public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
+  public static IntPtr FindMainWindow(uint processId, string expectedTitle) {
+    IntPtr found = IntPtr.Zero;
+    EnumWindows((hWnd, lParam) => {
+      uint windowProcessId;
+      GetWindowThreadProcessId(hWnd, out windowProcessId);
+      if (windowProcessId != processId || !IsWindowVisible(hWnd)) return true;
+      var title = new StringBuilder(512);
+      GetWindowText(hWnd, title, title.Capacity);
+      if (title.ToString() != expectedTitle) return true;
+      found = hWnd;
+      return false;
+    }, IntPtr.Zero);
+    return found;
+  }
 }
 '@
 
@@ -36,7 +56,12 @@ while ($true) {
   $foreground = [KimiHostNative]::GetForegroundWindow()
   $allProcesses = @(Get-Process -Name $allNames -ErrorAction SilentlyContinue)
   $candidates = @($allProcesses | Where-Object {
-    $names -contains $_.ProcessName -and $_.MainWindowHandle -ne [IntPtr]::Zero
+    $names -contains $_.ProcessName
+  } | ForEach-Object {
+    $mainWindow = [KimiHostNative]::FindMainWindow([uint32]$_.Id, $_.ProcessName)
+    if ($mainWindow -ne [IntPtr]::Zero) {
+      [PSCustomObject]@{ ProcessName = $_.ProcessName; MainWindowHandle = $mainWindow }
+    }
   })
   $selected = $null
 
