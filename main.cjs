@@ -13,6 +13,7 @@ const LAUNCHER_WIDTH = 36
 const LAUNCHER_HEIGHT = 36
 const LAUNCHER_BOTTOM_OFFSET = 50
 const HOST_EXIT_GRACE_MS = 1500
+const AUTH_FAILURE_GRACE_MS = 5 * 60 * 1000
 // 宿主最小化或被隐藏时 Windows 会给出 -25600,-25600 的占位矩形（约 159x27），
 // 不能拿它算缩放或定位，否则挂件会被缩成几像素。
 const MIN_HOST_WIDTH = 320
@@ -27,6 +28,7 @@ let hostInfo = null
 let hostExitTimer = null
 let syncing = false
 let lastCompletionAt = 0
+let firstAuthFailureAt = null
 let store = null
 let settings = null
 let refreshTimer = null
@@ -42,6 +44,7 @@ function emptyState(demo = false) {
     demo,
     quotas: demo ? demoQuota() : {},
     error: null,
+    stale: false,
     updatedAt: demo ? new Date().toISOString() : null,
   }
 }
@@ -323,16 +326,26 @@ async function refreshQuota() {
         store.saveCache({ quotas: state.quotas, updatedAt: new Date().toISOString() })
       }
       state.updatedAt = new Date().toISOString()
+      state.stale = false
+      firstAuthFailureAt = null
     } catch (error) {
       if (sequence !== requestSequence) return publicState()
-      state.error = error.message || '额度查询失败'
-      if (!state.demo) {
-        const cache = store.loadCache()
-        if (cache?.quotas) {
-          state.quotas = cache.quotas
-          state.updatedAt = cache.updatedAt
-          state.error += '；当前显示上次成功快照'
+      const cache = state.demo ? null : store.loadCache()
+      if (cache?.quotas) {
+        state.quotas = cache.quotas
+        state.updatedAt = cache.updatedAt
+      }
+      state.stale = Boolean(cache?.quotas)
+      const cacheSuffix = state.stale ? '；当前显示上次成功快照' : ''
+      if (error.code === 'AUTH_FAILED') {
+        firstAuthFailureAt ??= Date.now()
+        if (Date.now() - firstAuthFailureAt >= AUTH_FAILURE_GRACE_MS) {
+          state.error = `${error.message}${cacheSuffix}`
+        } else {
+          state.error = state.stale ? null : '正在同步登录状态，请稍候'
         }
+      } else {
+        state.error = `${error.message || '额度查询失败'}${cacheSuffix}`
       }
     } finally {
       if (sequence === requestSequence) {

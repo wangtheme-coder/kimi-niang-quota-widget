@@ -140,8 +140,7 @@ function readAccessToken() {
   throw new Error('未找到可用的 Kimi Code 登录令牌，请重新登录')
 }
 
-async function fetchQuota() {
-  const token = readAccessToken()
+async function requestQuota(token) {
   let response
   try {
     response = await fetch(USAGE_URL, {
@@ -152,7 +151,7 @@ async function fetchQuota() {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('额度查询超时，请稍后重试')
     throw new Error('无法连接 Kimi 额度服务，请检查网络')
   }
-  if (response.status === 401 || response.status === 403) throw new Error('登录状态已失效，请在 Kimi Code 中重新登录')
+  if (response.status === 401 || response.status === 403) return null
   if (response.status === 429) throw new Error('查询过于频繁，请稍后重试')
   if (!response.ok) throw new Error(`额度服务暂时不可用（HTTP ${response.status}）`)
   let payload
@@ -162,6 +161,17 @@ async function fetchQuota() {
     throw new Error('额度接口返回了非 JSON 数据')
   }
   return parseQuotaPayload(payload)
+}
+
+async function fetchQuota() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 1200))
+    const quotas = await requestQuota(readAccessToken())
+    if (quotas) return quotas
+  }
+  const error = new Error('登录状态已失效，请在 Kimi Code 中重新登录')
+  error.code = 'AUTH_FAILED'
+  throw error
 }
 
 function demoQuota() {

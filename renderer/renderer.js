@@ -188,7 +188,9 @@ function render(state) {
   renderQuota('30d', state.quotas?.monthly)
   sourceLabel.textContent = state.demo ? '演示数据' : 'Kimi Code'
   sourceLabel.style.color = state.demo ? '#ffd178' : ''
-  statusLabel.textContent = state.error || (state.demo ? '仅演示界面，不是账号额度' : '额度已更新')
+  statusLabel.textContent = state.error || (state.demo
+    ? '仅演示界面，不是账号额度'
+    : state.stale ? '显示上次成功快照' : '额度已更新')
   const updated = state.updatedAt ? new Date(state.updatedAt) : null
   const isToday = updated?.toDateString() === new Date().toDateString()
   updatedLabel.textContent = updated
