@@ -142,13 +142,18 @@ function formatReset(resetAt) {
   return `${Math.max(1, mins)}分后重置`
 }
 
-function renderQuota(key, quota) {
+// 第二栏可能是 30 天限额 / 7 天限额 / 月度额度池（老套餐走会员接口），标签随数据动态显示
+function renderQuota(key, quota, label) {
   const root = document.querySelector(`#quota-${key}`)
   const percent = root.querySelector('.percent')
   const fill = root.querySelector('.fill')
   const track = root.querySelector('.track')
   const remaining = root.querySelector('.remaining')
   const reset = root.querySelector('.reset')
+  const heading = root.querySelector('.quota-heading span')
+  const windowLabel = label || '限额'
+  if (heading) heading.textContent = windowLabel
+  track.setAttribute('aria-label', `${windowLabel}使用量`)
   root.classList.toggle('unavailable', !quota?.available)
 
   if (!quota?.available) {
@@ -184,8 +189,8 @@ function render(state) {
   document.documentElement.style.setProperty('--panel-scale', (state.panelScale || 1) * fitScale)
   document.querySelector('#widget').classList.toggle('side-left', state.side === 'left')
   if (expanded && previousAutoClose !== state.autoCloseMs) scheduleCollapse()
-  renderQuota('5h', state.quotas?.fiveHour)
-  renderQuota('30d', state.quotas?.monthly)
+  renderQuota('5h', state.quotas?.fiveHour, state.quotas?.fiveHour?.label || '5 小时限额')
+  renderQuota('30d', state.quotas?.monthly, state.quotas?.monthly?.label || '30 天限额')
   sourceLabel.textContent = state.demo ? '演示数据' : 'Kimi Code'
   sourceLabel.style.color = state.demo ? '#ffd178' : ''
   statusLabel.textContent = state.error || (state.demo

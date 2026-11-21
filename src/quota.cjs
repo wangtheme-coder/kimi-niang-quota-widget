@@ -3,6 +3,16 @@ const os = require('node:os')
 const path = require('node:path')
 
 const USAGE_URL = 'https://api.kimi.com/coding/v1/usages'
+const MEMBERSHIP_STATS_URL = 'https://www.kimi.com/apiv2/kimi.gateway.membership.v2.MembershipService/GetSubscriptionStats'
+const MEMBERSHIP_SUB_URL = 'https://www.kimi.com/apiv2/kimi.gateway.membership.v2.MembershipService/GetSubscription'
+// 老套餐（如 Andante）的月度额度池不在 coding /usages 接口里，需要从 Kimi 桌面客户端
+// 本机 localStorage 读取 kimi.com 网页会话令牌，调用会员服务接口读取 amountUsedRatio。
+// 令牌只在内存中使用，不写入设置、缓存或日志。
+const WEB_TOKEN_LEVELDB_DIR = path.join(
+  process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+  'kimi-desktop', 'Local Storage', 'leveldb'
+)
+const WEB_JWT_RE = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g
 const MONTHLY_KEYS = new Set(['monthly', 'month', 'monthlyusage', 'monthly_usage', '30d', 'days30', 'monthlyquota'])
 const ROLLING_KEYS = new Set(['rolling', 'fivehour', 'five_hour', '5h', 'hourly', 'usage'])
 
@@ -76,6 +86,7 @@ function parseQuotaPayload(payload) {
   const root = payload.data && typeof payload.data === 'object' ? payload.data : payload
   let fiveHour = parseWindow(root.usages?.limit_5h) || parseWindow(root.usage) || parseWindow(root.fiveHour) || parseWindow(root.rolling)
   let monthly = parseWindow(root.usages?.limit_month_total)
+  const sevenDay = parseWindow(root.usages?.limit_7d)
 
   function visit(node, key = '', depth = 0) {
     if (!node || typeof node !== 'object' || depth > 6) return
@@ -91,10 +102,11 @@ function parseQuotaPayload(payload) {
     }
   }
   visit(root)
-  if (!fiveHour && !monthly) throw new Error('接口返回成功，但没有识别到额度窗口')
+  if (!fiveHour && !monthly && !sevenDay) throw new Error('接口返回成功，但没有识别到额度窗口')
   return {
     fiveHour: fiveHour || { available: false, reason: '接口未返回 5 小时窗口' },
-    monthly: monthly || { available: false, reason: '接口未返回 30 天窗口' },
+    monthly: monthly
+      || (sevenDay ? { ...sevenDay, label: '7 天限额' } : { available: false, reason: '接口未返回 30 天窗口' }),
   }
 }
 
@@ -163,7 +175,7 @@ async function requestQuota(token) {
   return parseQuotaPayload(payload)
 }
 
-async function fetchQuota() {
+async function fetchCodingQuota() {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt) await new Promise((resolve) => setTimeout(resolve, 1200))
     const quotas = await requestQuota(readAccessToken())
@@ -172,6 +184,94 @@ async function fetchQuota() {
   const error = new Error('登录状态已失效，请在 Kimi Code 中重新登录')
   error.code = 'AUTH_FAILED'
   throw error
+}
+
+// 网页 access_token 约 30 分钟有效，桌面客户端会自动轮换并写入 localStorage；
+// 每次查询重新扫描即可无缝跟随，轮换间隙由 7 天窗口兜底。
+function candidateWebTokens() {
+  let files = []
+  try {
+    files = fs.readdirSync(WEB_TOKEN_LEVELDB_DIR)
+      .filter((name) => name.endsWith('.log') || name.endsWith('.ldb'))
+  } catch {
+    return []
+  }
+  const found = new Set()
+  const now = Math.floor(Date.now() / 1000)
+  for (const name of files) {
+    let buffer
+    try {
+      buffer = fs.readFileSync(path.join(WEB_TOKEN_LEVELDB_DIR, name))
+    } catch {
+      continue
+    }
+    for (const encoding of ['latin1', 'utf16le']) {
+      const text = buffer.toString(encoding)
+      let match
+      while ((match = WEB_JWT_RE.exec(text)) !== null) {
+        try {
+          const payload = JSON.parse(Buffer.from(match[0].split('.')[1], 'base64url').toString('utf8'))
+          if (payload.type === 'refresh' || payload.typ === 'refresh') continue
+          if ((payload.exp || 0) > now + 90) found.add(match[0])
+        } catch {
+        }
+      }
+    }
+  }
+  return [...found]
+}
+
+async function postMembership(url, token) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: '{}',
+    signal: AbortSignal.timeout(12000),
+  })
+  if (response.status !== 200) return null
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
+async function fetchMembershipMonthly() {
+  for (const token of candidateWebTokens()) {
+    const stats = await postMembership(MEMBERSHIP_STATS_URL, token).catch(() => null)
+    const balance = stats && stats.subscriptionBalance
+    // 注意：不能写 Number(balance && balance.amountUsedRatio)，401 时 balance 为 null，
+    // Number(null) === 0 会被当成合法比例，必须显式判断类型。
+    const ratio = balance && typeof balance.amountUsedRatio === 'number' ? balance.amountUsedRatio : NaN
+    if (!Number.isFinite(ratio)) continue
+    const subscription = await postMembership(MEMBERSHIP_SUB_URL, token).catch(() => null)
+    const sub = subscription && subscription.subscription
+    const resetValue = sub && (sub.nextBillingTime || sub.currentEndTime)
+    const resetAtIso = typeof resetValue === 'string' && Number.isFinite(Date.parse(resetValue))
+      ? new Date(resetValue).toISOString()
+      : null
+    return {
+      available: true,
+      usedPercent: Math.max(0, Math.min(100, ratio * 100)),
+      remaining: null,
+      limit: null,
+      resetAt: resetAtIso,
+      label: '月度额度池',
+    }
+  }
+  return null
+}
+
+async function fetchQuota() {
+  const quotas = await fetchCodingQuota()
+  // 7 天兜底也带 available: true，需要用 label 区分它是不是真实月度窗口：
+  // 只有拿到真实月度（limit_month_total 或会员接口月度池）才不再尝试会员接口。
+  const monthlyIsReal = quotas.monthly && quotas.monthly.available && quotas.monthly.label !== '7 天限额'
+  if (!monthlyIsReal) {
+    const membershipMonthly = await fetchMembershipMonthly().catch(() => null)
+    if (membershipMonthly) quotas.monthly = membershipMonthly
+  }
+  return quotas
 }
 
 function demoQuota() {
